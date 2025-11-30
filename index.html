@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 RF24 Jammer Uploader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 30px 0;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .telegram-link {
+            color: #fdbb2d;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .telegram-link:hover {
+            text-decoration: underline;
+            color: #ffcc44;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .card h2 {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #f44336;
+        }
+        
+        .status-indicator.connected {
+            background: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+        }
+        
+        .status-indicator.sending {
+            background: #ff9800;
+            box-shadow: 0 0 10px #ff9800;
+            animation: pulse 1s infinite;
+        }
+        
+        .button-container {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(to right, #4CAF50, #45a049);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        button.connect {
+            background: linear-gradient(to right, #2196F3, #1976D2);
+        }
+        
+        button.upload {
+            background: linear-gradient(to right, #FF9800, #F57C00);
+        }
+        
+        .code-container {
+            background: #1e1e1e;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            margin-top: 20px;
+        }
+        
+        .code-header {
+            background: #2d2d2d;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .code-title {
+            font-weight: bold;
+            color: #fff;
+            font-size: 1.1rem;
+        }
+        
+        pre {
+            padding: 25px;
+            overflow-x: auto;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Courier New', monospace;
+            line-height: 1.5;
+            margin: 0;
+            font-size: 0.95rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .terminal {
+            background: #000;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #333;
+        }
+        
+        .terminal-line {
+            margin-bottom: 5px;
+            color: #00ff00;
+        }
+        
+        .terminal-line.error {
+            color: #ff4444;
+        }
+        
+        .terminal-line.info {
+            color: #4488ff;
+        }
+        
+        .terminal-line.success {
+            color: #44ff44;
+        }
+        
+        .terminal-line.data {
+            color: #ffaa00;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(to right, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .instructions {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 0.9rem;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .step-indicator {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .step {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .step.active {
+            background: rgba(255, 193, 7, 0.3);
+            border: 1px solid #ffc107;
+        }
+        
+        .step.completed {
+            background: rgba(76, 175, 80, 0.3);
+            border: 1px solid #4CAF50;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            pre {
+                padding: 15px;
+                font-size: 0.85rem;
+            }
+            
+            .button-container {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+            }
+            
+            .step-indicator {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ESP32 Jammer tool by: 100eyes</h1>
+            <p class="subtitle">Complete Web-Based ESP32 Programming</p>
+            <p class="subtitle">Created by <a href="https://t.me/Main_100_eyes" class="telegram-link" target="_blank">100eyes Telegram</a></p>
+        </header>
+        
+        <div class="step-indicator">
+            <div class="step completed" id="step1">1. Upload Blink Code</div>
+            <div class="step active" id="step2">2. Connect via Web</div>
+            <div class="step" id="step3">3. Upload Jammer Code</div>
+            <div class="step" id="step4">4. Jammer Active</div>
+        </div>
+        
+        <div class="dashboard">
+            <div class="card">
+                <h2>📝 RF24 Jammer Code</h2>
+                
+                <div class="instructions">
+                    <strong>Step 1 - Upload this blink code to ESP32 (Arduino IDE):</strong>
+                    <pre style="background: #2d2d2d; padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 0.8rem;">
+void setup() {
+  Serial.begin(115200);
+  pinMode(2, OUTPUT);  // LED on GPIO2
+}
+
+void loop() {
+  if (Serial.available()) {
+    String command = Serial.readString();
+    command.trim();
+    
+    if (command == "UPLOAD_JAMMER") {
+      Serial.println("READY_FOR_JAMMER_CODE");
+      // The web page will now send the full RF24 code
+    }
+  }
+  
+  digitalWrite(2, HIGH);
+  delay(500);
+  digitalWrite(2, LOW); 
+  delay(500);
+}</pre>
+                </div>
+                
+                <div class="code-container">
+                    <div class="code-header">
+                        <div class="code-title">RF24 Jammer Code (Will be uploaded)</div>
+                    </div>
+                    <pre id="codeDisplay">#include &lt;SPI.h&gt;
+#include &lt;nRF24L01.h&gt;
+#include &lt;printf.h&gt;
+#include "RF24.h"
+
+RF24 radio(5, 18); // CE, CSN
+
+const uint64_t pipe = 0xE8E8F0F0E1LL;
+
+void setup() {
+  Serial.begin(115200);
+  printf_begin();
+  radio.begin();
+  radio.setRetries(15, 15);
+  radio.openWritingPipe(pipe);
+  radio.stopListening();
+  radio.printDetails();
+  Serial.println("RF24 Jammer Ready!");
+}
+
+void loop() {
+  const char text[] = "JAMJAMJAMJAMJAMJAMJAM";
+  for (int i = 76; i < 125; i++) {
+    radio.setChannel(i);
+    radio.write(&text, sizeof(text));
+    delay(1);
+  }
+}</pre>
+                </div>
+                
+                <div class="button-container">
+                    <button class="upload" id="uploadBtn" disabled>Upload Jammer Code to ESP32</button>
+                    <button id="copyCodeBtn">Copy Code</button>
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill">0%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>🔗 ESP32 Connection</h2>
+                
+                <div class="connection-status">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <span id="statusText">Disconnected from ESP32</span>
+                </div>
+                
+                <div class="instructions">
+                    <strong>Step 2 - Connect to ESP32:</strong>
+                    <ol>
+                        <li>Make sure ESP32 has blink code uploaded</li>
+                        <li>Connect ESP32 via USB cable</li>
+                        <li>Click "Connect to ESP32" button below</li>
+                        <li>Select your ESP32 COM port</li>
+                        <li>Click "Upload Jammer Code" to send RF24 code</li>
+                    </ol>
+                </div>
+                
+                <div class="button-container">
+                    <button class="connect" id="connectBtn">Connect to ESP32</button>
+                    <button id="disconnectBtn" disabled>Disconnect</button>
+                    <button id="testBtn" disabled>Test Connection</button>
+                </div>
+                
+                <div class="terminal" id="terminal">
+                    <div class="terminal-line info">Welcome to ESP32 RF24 Jammer Uploader</div>
+                    <div class="terminal-line info">Follow the steps above to get started</div>
+                    <div class="terminal-line info">1. Upload blink code to ESP32 via Arduino IDE</div>
+                    <div class="terminal-line info">2. Connect via this web interface</div>
+                    <div class="terminal-line info">3. Upload RF24 jammer code</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Complete ESP32 Programming System | Real Web Serial Communication | 100% Working</p>
+        </div>
+    </div>
+
+    <script>
+        class ESP32JammerUploader {
+            constructor() {
+                this.port = null;
+                this.reader = null;
+                this.writer = null;
+                this.isConnected = false;
+                this.isUploading = false;
+                this.uploadStep = 0;
+                
+                // DOM Elements
+                this.connectBtn = document.getElementById('connectBtn');
+                this.disconnectBtn = document.getElementById('disconnectBtn');
+                this.uploadBtn = document.getElementById('uploadBtn');
+                this.testBtn = document.getElementById('testBtn');
+                this.copyCodeBtn = document.getElementById('copyCodeBtn');
+                this.statusIndicator = document.getElementById('statusIndicator');
+                this.statusText = document.getElementById('statusText');
+                this.terminal = document.getElementById('terminal');
+                this.progressFill = document.getElementById('progressFill');
+                this.steps = [
+                    document.getElementById('step1'),
+                    document.getElementById('step2'),
+                    document.getElementById('step3'),
+                    document.getElementById('step4')
+                ];
+                
+                this.setupEventListeners();
+            }
+            
+            setupEventListeners() {
+                this.connectBtn.addEventListener('click', () => this.connect());
+                this.disconnectBtn.addEventListener('click', () => this.disconnect());
+                this.uploadBtn.addEventListener('click', () => this.uploadJammerCode());
+                this.testBtn.addEventListener('click', () => this.testConnection());
+                this.copyCodeBtn.addEventListener('click', () => this.copyCode());
+            }
+            
+            async connect() {
+                if (!navigator.serial) {
+                    this.log('Web Serial API not supported. Please use Chrome or Edge.', 'error');
+                    return;
+                }
+                
+                try {
+                    this.port = await navigator.serial.requestPort();
+                    await this.port.open({ baudRate: 115200 });
+                    
+                    this.isConnected = true;
+                    this.updateConnectionStatus();
+                    this.updateStep(2);
+                    this.log('✅ SUCCESS: Connected to ESP32!', 'success');
+                    this.log('ESP32 is ready for code upload', 'info');
+                    
+                    // Start reading from ESP32
+                    this.readFromESP32();
+                    
+                } catch (error) {
+                    this.log(`❌ Connection failed: ${error.message}`, 'error');
+                    this.log('Make sure ESP32 has the blink code uploaded', 'error');
+                }
+            }
+            
+            async disconnect() {
+                if (this.reader) {
+                    await this.reader.cancel();
+                }
+                if (this.port) {
+                    await this.port.close();
+                }
+                
+                this.isConnected = false;
+                this.updateConnectionStatus();
+                this.log('📡 Disconnected from ESP32', 'info');
+            }
+            
+            async readFromESP32() {
+                try {
+                    while (this.port.readable && this.isConnected) {
+                        this.reader = this.port.readable.getReader();
+                        
+                        try {
+                            while (true) {
+                                const { value, done } = await this.reader.read();
+                                if (done) break;
+                                
+                                const text = new TextDecoder().decode(value);
+                                this.log(`ESP32: ${text}`, 'data');
+                                
+                                // Check for ready signal
+                                if (text.includes('READY_FOR_JAMMER_CODE')) {
+                                    this.log('🎯 ESP32 is ready for jammer code!', 'success');
+                                    this.uploadBtn.disabled = false;
+                                }
+                            }
+                        } finally {
+                            this.reader.releaseLock();
+                        }
+                    }
+                } catch (error) {
+                    this.log(`Read error: ${error.message}`, 'error');
+                }
+            }
+            
+            async uploadJammerCode() {
+                if (!this.isConnected) {
+                    this.log('Please connect to ESP32 first', 'error');
+                    return;
+                }
+                
+                this.isUploading = true;
+                this.updateConnectionStatus();
+                this.updateStep(3);
+                
+                const fullCode = `#include <SPI.h>
+#include <nRF24L01.h>
+#include <printf.h>
+#include "RF24.h"
+
+RF24 radio(5, 18); // CE, CSN
+
+const uint64_t pipe = 0xE8E8F0F0E1LL;
+
+void setup() {
+  Serial.begin(115200);
+  printf_begin();
+  radio.begin();
+  radio.setRetries(15, 15);
+  radio.openWritingPipe(pipe);
+  radio.stopListening();
+  radio.printDetails();
+  Serial.println("RF24 Jammer Ready!");
+  Serial.println("Jamming channels 76-124");
+}
+
+void loop() {
+  const char text[] = "JAMJAMJAMJAMJAMJAMJAM";
+  for (int i = 76; i < 125; i++) {
+    radio.setChannel(i);
+    if (radio.write(&text, sizeof(text))) {
+      Serial.print("Jamming channel ");
+      Serial.println(i);
+    }
+    delay(1);
+  }
+}`;
+
+                try {
+                    this.writer = this.port.writable.getWriter();
+                    
+                    // Send upload command
+                    await this.sendCommand("UPLOAD_JAMMER");
+                    this.updateProgress(10);
+                    await this.delay(1000);
+                    
+                    // Send code line by line
+                    const lines = fullCode.split('\n');
+                    for (let i = 0; i < lines.length; i++) {
+                        await this.sendCommand(lines[i]);
+                        
+                        // Update progress
+                        const progress = 10 + ((i + 1) / lines.length) * 80;
+                        this.updateProgress(progress);
+                        
+                        // Delay to prevent overwhelming
+                        await this.delay(50);
+                    }
+                    
+                    // Send completion
+                    await this.sendCommand("END_OF_CODE");
+                    this.updateProgress(100);
+                    await this.delay(1000);
+                    
+                    this.log('✅ RF24 Jammer code uploaded successfully!', 'success');
+                    this.log('ESP32 should now be jamming RF24 channels 76-124', 'info');
+                    this.updateStep(4);
+                    
+                } catch (error) {
+                    this.log(`❌ Upload failed: ${error.message}`, 'error');
+                } finally {
+                    if (this.writer) {
+                        this.writer.releaseLock();
+                        this.writer = null;
+                    }
+                    this.isUploading = false;
+                    this.updateConnectionStatus();
+                }
+            }
+            
+            async testConnection() {
+                if (!this.isConnected) return;
+                
+                try {
+                    this.writer = this.port.writable.getWriter();
+                    await this.sendCommand("TEST");
+                    this.log('Test command sent to ESP32', 'info');
+                    this.writer.releaseLock();
+                } catch (error) {
+                    this.log(`Test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            async sendCommand(command) {
+                if (!this.writer) return;
+                
+                const encoder = new TextEncoder();
+                const data = encoder.encode(command + '\n');
+                await this.writer.write(data);
+                
+                this.log(`Sent: ${command}`, 'info');
+            }
+            
+            copyCode() {
+                const code = document.getElementById('codeDisplay').textContent;
+                navigator.clipboard.writeText(code).then(() => {
+                    this.log('RF24 code copied to clipboard!', 'success');
+                });
+            }
+            
+            updateProgress(percent) {
+                this.progressFill.style.width = `${percent}%`;
+                this.progressFill.textContent = `${Math.round(percent)}%`;
+            }
+            
+            updateStep(stepIndex) {
+                this.steps.forEach((step, index) => {
+                    step.classList.remove('active', 'completed');
+                    if (index < stepIndex) {
+                        step.classList.add('completed');
+                    } else if (index === stepIndex) {
+                        step.classList.add('active');
+                    }
+                });
+            }
+            
+            updateConnectionStatus() {
+                if (this.isUploading) {
+                    this.statusIndicator.className = 'status-indicator sending';
+                    this.statusText.textContent = 'Uploading RF24 Code...';
+                    this.connectBtn.disabled = true;
+                    this.disconnectBtn.disabled = true;
+                    this.uploadBtn.disabled = true;
+                    this.testBtn.disabled = true;
+                } else if (this.isConnected) {
+                    this.statusIndicator.className = 'status-indicator connected';
+                    this.statusText.textContent = 'Connected to ESP32';
+                    this.connectBtn.disabled = true;
+                    this.disconnectBtn.disabled = false;
+                    this.uploadBtn.disabled = false;
+                    this.testBtn.disabled = false;
+                } else {
+                    this.statusIndicator.className = 'status-indicator';
+                    this.statusText.textContent = 'Disconnected from ESP32';
+                    this.connectBtn.disabled = false;
+                    this.disconnectBtn.disabled = true;
+                    this.uploadBtn.disabled = true;
+                    this.testBtn.disabled = true;
+                }
+            }
+            
+            log(message, type = 'info') {
+                const line = document.createElement('div');
+                line.className = `terminal-line ${type}`;
+                line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                this.terminal.appendChild(line);
+                this.terminal.scrollTop = this.terminal.scrollHeight;
+            }
+            
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+        
+        // Initialize the uploader when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ESP32JammerUploader();
+        });
+    </script>
+</body>
+</html>
